@@ -2,7 +2,7 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Crear tabla DynamoDB
+
 resource "aws_dynamodb_table" "user_table" {
   name         = "user"
   billing_mode = "PAY_PER_REQUEST"
@@ -14,7 +14,7 @@ resource "aws_dynamodb_table" "user_table" {
   }
 }
 
-# Crear bucket S3
+
 resource "aws_s3_bucket" "user_data_bucket" {
   bucket = "user-data-bucket-py"
   tags = {
@@ -23,14 +23,14 @@ resource "aws_s3_bucket" "user_data_bucket" {
   }
 }
 
-# Subir el archivo ZIP de Lambda al bucket S3
+
 resource "aws_s3_object" "lambda_zip" {
   bucket = aws_s3_bucket.user_data_bucket.bucket
   key    = "GetUser.zip"
-  source = "C:/Terraform_Lambda/GetUser.zip"
+  source = "C:/Prueba_terraform_api/GetUser.zip" ##Review the route
 }
 
-# Crear rol IAM para Lambda
+
 resource "aws_iam_role" "lambda_execution_role" {
   name = "lambda_execution_role"
 
@@ -48,7 +48,7 @@ resource "aws_iam_role" "lambda_execution_role" {
   })
 }
 
-# Crear política IAM para acceso a DynamoDB
+
 resource "aws_iam_policy" "lambda_dynamodb_access_policy" {
   name        = "lambda_dynamodb_access_policy"
   description = "Allow Lambda to read from DynamoDB"
@@ -68,13 +68,12 @@ resource "aws_iam_policy" "lambda_dynamodb_access_policy" {
   })
 }
 
-# Adjuntar política al rol de Lambda
 resource "aws_iam_role_policy_attachment" "lambda_dynamodb_policy_attachment" {
   role       = aws_iam_role.lambda_execution_role.name
   policy_arn = aws_iam_policy.lambda_dynamodb_access_policy.arn
 }
 
-# Crear función Lambda
+
 resource "aws_lambda_function" "get_user_function" {
   function_name = "GetUserFunction"
 
@@ -85,7 +84,7 @@ resource "aws_lambda_function" "get_user_function" {
   role      = aws_iam_role.lambda_execution_role.arn
 }
 
-# Crear rol IAM para API Gateway
+
 resource "aws_iam_role" "api_gateway_role" {
   name = "api_gateway_role"
 
@@ -103,7 +102,7 @@ resource "aws_iam_role" "api_gateway_role" {
   })
 }
 
-# Crear política para permitir a API Gateway invocar Lambda
+
 resource "aws_iam_policy" "api_gateway_lambda_invocation_policy" {
   name        = "api_gateway_lambda_invocation_policy"
   description = "Allow API Gateway to invoke Lambda"
@@ -120,26 +119,26 @@ resource "aws_iam_policy" "api_gateway_lambda_invocation_policy" {
   })
 }
 
-# Adjuntar política al rol de API Gateway
+
 resource "aws_iam_role_policy_attachment" "api_gateway_lambda_policy_attachment" {
   role       = aws_iam_role.api_gateway_role.name
   policy_arn = aws_iam_policy.api_gateway_lambda_invocation_policy.arn
 }
 
-# Crear API Gateway
+
 resource "aws_api_gateway_rest_api" "user_api" {
   name        = "UserAPI"
   description = "API for Lambda function"
 }
 
-# Crear recurso en API Gateway
+
 resource "aws_api_gateway_resource" "device_resource" {
   rest_api_id = aws_api_gateway_rest_api.user_api.id
   parent_id   = aws_api_gateway_rest_api.user_api.root_resource_id
   path_part   = "device"
 }
 
-# Crear método GET en el recurso
+
 resource "aws_api_gateway_method" "get_device_method" {
   rest_api_id   = aws_api_gateway_rest_api.user_api.id
   resource_id   = aws_api_gateway_resource.device_resource.id
@@ -147,7 +146,7 @@ resource "aws_api_gateway_method" "get_device_method" {
   authorization = "NONE"
 }
 
-# Integrar Lambda con API Gateway
+
 resource "aws_api_gateway_integration" "lambda_integration" {
   rest_api_id             = aws_api_gateway_rest_api.user_api.id
   resource_id             = aws_api_gateway_resource.device_resource.id
@@ -157,7 +156,7 @@ resource "aws_api_gateway_integration" "lambda_integration" {
   uri                     = "arn:aws:apigateway:${var.region}:lambda:path/2015-03-31/functions/${aws_lambda_function.get_user_function.arn}/invocations"
 }
 
-# Permitir que API Gateway invoque Lambda
+
 resource "aws_lambda_permission" "api_gateway_lambda_permission" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.get_user_function.function_name
@@ -165,7 +164,7 @@ resource "aws_lambda_permission" "api_gateway_lambda_permission" {
   source_arn    = "${aws_api_gateway_rest_api.user_api.execution_arn}/*/*"
 }
 
-# Crear despliegue en API Gateway
+
 resource "aws_api_gateway_deployment" "dev_stage" {
   depends_on = [
     aws_api_gateway_integration.lambda_integration,
